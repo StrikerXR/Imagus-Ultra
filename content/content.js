@@ -1,10 +1,63 @@
 "use strict";
 (function (win, doc) {
     if (!doc || doc instanceof win.HTMLDocument === false) return;
-    var imgDoc = doc.images && doc.images.length === 1 && doc.images[0];
+    let imgDoc = doc.images && doc.images.length === 1 && doc.images[0];
     if (imgDoc && imgDoc.parentNode === doc.body && imgDoc.src === win.location.href) return;
 
-    var flip = function (el, ori) {
+    const eventListeners = [];
+    const addEvent = (target, type, listener, options) => {
+        if (!target) return;
+        target.addEventListener(type, listener, options);
+        eventListeners.push({ target, type, listener, options });
+    };
+    const removeEvent = (target, type, listener, options) => {
+        if (!target) return;
+        target.removeEventListener(type, listener, options);
+        const idx = eventListeners.findIndex(e => e.target === target && e.type === type && e.listener === listener);
+        if (idx !== -1) eventListeners.splice(idx, 1);
+    };
+    const removeAllEvents = () => {
+        while (eventListeners.length) {
+            const { target, type, listener, options } = eventListeners.pop();
+            removeEvent(target, type, listener, options);
+        }
+    };
+
+    const timers = new Set();
+    const setTimer = (fn, delay, ...args) => {
+        const id = setTimeout(() => {
+            timers.delete(id);
+            fn(...args);
+        }, delay);
+        timers.add(id);
+        return id;
+    };
+    const setIntervalTimer = (fn, delay, ...args) => {
+        const id = setInterval(fn, delay, ...args);
+        timers.add(id);
+        return id;
+    };
+    const clearTimer = (id) => {
+        clearTimeout(id);
+        clearInterval(id);
+        timers.delete(id);
+    };
+    const clearAllTimers = () => {
+        for (const id of timers) {
+            clearTimeout(id);
+            clearInterval(id);
+        }
+        timers.clear();
+    };
+
+    const updateStyle = (el, styles) => {
+        if (!el) return;
+        requestAnimationFrame(() => {
+            Object.assign(el.style, styles);
+        });
+    };
+
+    let flip = function (el, ori) {
         if (!el.scale) el.scale = { h: 1, v: 1 };
         el.scale[ori ? "h" : "v"] *= -1;
         ori = el.scale.h !== 1 || el.scale.v !== 1 ? "scale(" + el.scale.h + "," + el.scale.v + ")" : "";
@@ -12,43 +65,43 @@
         el.style.transform = ori;
     };
 
-    var pdsp = function (e, d, p) {
+    let pdsp = function (e, d, p) {
         if (!e || !e.preventDefault || !e.stopPropagation) return;
         if (d === undefined || d === true) e.preventDefault();
         if (p !== false) e.stopImmediatePropagation();
     };
 
-    var imageSendTo = function (sf) {
+    let imageSendTo = function (sf) {
         if ((!sf.url && !sf.name && !sf.url) || (sf.url && !/^http/.test(sf.url))) {
             alert("Invalid URL! (" + sf.url.slice(0, sf.url.indexOf(":") + 1));
             return;
         }
-        var i = 0;
-        var urls = [];
-        var hosts = cfg.tls.sendToHosts;
+        let i = 0;
+        let urls = [];
+        let hosts = cfg.tls.sendToHosts;
         for (; i < hosts.length; ++i)
             if (sf.host === i || (sf.host === undefined && hosts[i][0][0] === "+"))
                 urls.push(hosts[i][1].replace("%url", encodeURIComponent(sf.url)).replace("%raw_url", sf.url));
         Port.send({ cmd: "open", url: urls, nf: !!sf.nf });
     };
 
-    var checkBG = function (imgs) {
+    let checkBG = function (imgs) {
         if (imgs)
             if (Array.isArray((imgs = imgs.match(/\burl\(([^'"\)][^\)]*|"[^"\\]+(?:\\.[^"\\]*)*|'[^'\\]+(?:\\.[^'\\]*)*)(?=['"]?\))/g)))) {
-                var i = imgs.length;
+                let i = imgs.length;
                 while (i--) imgs[i] = imgs[i].slice(/'|"/.test(imgs[i][4]) ? 5 : 4);
                 return imgs;
             }
         return null;
     };
 
-    var checkIMG = function (node) {
-        var nname = node.nodeName.toUpperCase();
+    let checkIMG = function (node) {
+        let nname = node.nodeName.toUpperCase();
         if (nname === "IMG" || node.type === "image" || nname === "EMBED") return node.src;
         else if (nname === "CANVAS") return node.toDataURL();
         else if (nname === "OBJECT" && node.data) return node.data;
         else if (nname === "AREA") {
-            var img = doc.querySelector('img[usemap="#' + node.parentNode.name + '"]');
+            let img = doc.querySelector('img[usemap="#' + node.parentNode.name + '"]');
             return img.src;
         } else if (nname === "VIDEO") {
             nname = doc.createElement("canvas");
@@ -60,14 +113,14 @@
         return null;
     };
 
-    var mdownstart, winW, winH, topWinW, topWinH;
-    var rgxHash = /#(?![?!].).*/;
-    var rgxIsSVG = /\.svgz?$/i;
-    var viewportDimensions = function (targetDoc) {
-        var d = targetDoc || doc;
+    let mdownstart, winW, winH, topWinW, topWinH;
+    let rgxHash = /#(?![?!].).*/;
+    let rgxIsSVG = /\.svgz?$/i;
+    let viewportDimensions = function (targetDoc) {
+        let d = targetDoc || doc;
         d = (d.compatMode === "BackCompat" && d.body) || d.documentElement;
-        var w = d.clientWidth;
-        var h = d.clientHeight;
+        let w = d.clientWidth;
+        let h = d.clientHeight;
         if (targetDoc) return { width: w, height: h };
         if (w === winW && h === winH) return;
         winW = w;
@@ -76,7 +129,7 @@
         topWinH = h;
     };
 
-    var releaseFreeze = function (e) {
+    let releaseFreeze = function (e) {
         if (typeof PVI.freeze === "number") {
             PVI.freeze = !cfg.hz.deactivate;
             return;
@@ -95,7 +148,7 @@
         if (PVI.keyup_freeze_on) PVI.keyup_freeze();
     };
 
-    var onMouseDown = function (e) {
+    let onMouseDown = function (e) {
         if (!cfg || !e.isTrusted) return;
         const root = doc.compatMode && doc.compatMode[0] === "B" ? doc.body : doc.documentElement;
         if (e.clientX >= root.clientWidth || e.clientY >= root.clientHeight) return;
@@ -114,7 +167,7 @@
                 if (e.ctrlKey || PVI.fullZm !== 2) return;
                 pdsp(e);
                 PVI.fullZm = 3;
-                win.addEventListener("mouseup", PVI.fzDragEnd, true);
+                addEvent(win, "mouseup", PVI.fzDragEnd, true);
                 return;
             }
             if (e.target === PVI.CNT) {
@@ -142,11 +195,11 @@
         PVI.md_y = e.clientY;
 
         if (PVI.state > 2 && (cfg.hz.fzOnPress === 1 || cfg.hz.fzOnPress === 2) && !PVI.fullZm) {
-            clearTimeout(PVI.timers.cursor_hide);
-            clearTimeout(PVI.timers.cursor_wait);
+            clearTimer(PVI.timers.cursor_hide);
+            clearTimer(PVI.timers.cursor_wait);
             const oldCursor = e.target.style.cursor;
             e.target.style.cursor = "progress";
-            PVI.timers.cursor_wait = setTimeout(() => e.target.style.cursor = oldCursor, 300);
+            PVI.timers.cursor_wait = setTimer(() => e.target.style.cursor = oldCursor, 300);
         }
 
         if (e.target.href || e.target.parentNode?.href) {
@@ -154,7 +207,7 @@
         }
     };
 
-    var onContextMenu = function (e) {
+    let onContextMenu = function (e) {
         if (!mdownstart || e.button !== 2 || PVI.md_x !== e.clientX || PVI.md_y !== e.clientY) {
             if (mdownstart) mdownstart = null;
 
@@ -181,7 +234,7 @@
             return;
         }
 
-        var hasAltSrc = PVI.state < 3 && PVI.SRC && PVI.SRC.m2 !== undefined;
+        let hasAltSrc = PVI.state < 3 && PVI.SRC && PVI.SRC.m2 !== undefined;
 
         if (hasAltSrc) {
             if (elapsed) return;
@@ -240,16 +293,23 @@
         }
     }
 
-    var PVI = {
+    let PVI = {
         TRG: null,
         DIV: null,
         IMG: null,
         CAP: null,
         HLP: doc.createElement("a"),
         anim: {},
-        stack: {},
+        stack: new Map(),
+        addToStack(key, value) {
+            if (this.stack.size > 1000) {
+                const firstKey = this.stack.keys().next().value;
+                this.stack.delete(firstKey);
+            }
+            this.stack.set(key, value);
+        },
         timers: {},
-        resolving: [],
+        resolving: new Map(),
         lastTRGStyle: { cursor: null, outline: null },
         iFrame: false,
         state: null,
@@ -277,11 +337,14 @@
 
         create: function () {
             if (PVI.DIV) return;
-            var x, y, z, p;
+            let x, y, z, p;
             PVI.HLP = doc.createElement("a");
             PVI.DIV = doc.createElement("div");
             PVI.VID = doc.createElement("video");
             PVI.IMG = doc.createElement("img");
+            PVI.BACKDROP = doc.createElement("div");
+            PVI.BACKDROP.style.cssText = "position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; border-radius: inherit; display: none; background-size: cover; background-position: center; filter: blur(var(--imagus-blur, 25px)) opacity(0.6);";
+            PVI.DIV.appendChild(PVI.BACKDROP);
             PVI.LDR = PVI.IMG.cloneNode(false);
             PVI.CNT = PVI.IMG;
             PVI.DIV.IMGS_ = PVI.DIV.IMGS_c = PVI.LDR.IMGS_ = PVI.LDR.IMGS_c = PVI.VID.IMGS_ = PVI.VID.IMGS_c = PVI.IMG.IMGS_ = PVI.IMG.IMGS_c = true;
@@ -292,16 +355,16 @@
                 "position: fixed !important; box-sizing: content-box !important; left: auto; top: auto; right: auto; bottom: auto; width: auto; height: auto; max-width: none !important; max-height: none !important; ";
             PVI.DIV.curdeg = 0;
             PVI.LDR.wh = [35, 35];
-            var onLDRLoad = function () {
-                this.removeEventListener("load", onLDRLoad, false);
+            let onLDRLoad = function () {
+                removeEvent(this, "load", onLDRLoad, false);
                 onLDRLoad = null;
-                var x = this.style;
+                let x = this.style;
                 this.wh = [
                     x.width ? parseInt(x.width, 10) : this.naturalWidth || this.wh[0],
                     x.height ? parseInt(x.height, 10) : this.naturalHeight || this.wh[1],
                 ];
             };
-            PVI.LDR.addEventListener("load", onLDRLoad, false);
+            addEvent(PVI.LDR, "load", onLDRLoad, false);
             PVI.LDR.alt = "";
             PVI.LDR.draggable = false;
             PVI.LDR.style.cssText =
@@ -316,44 +379,44 @@
                 "display: none; visibility: inherit !important; background: none; position: relative; width: 100%; height: 100%; max-width: inherit; max-height: inherit; margin: 0; padding: 0; border: 0; ";
             PVI.IMG.alt = "";
             PVI.IMG.style.cssText = x + "; image-orientation: initial !important";
-            PVI.IMG.addEventListener("error", PVI.content_onerror);
+            addEvent(PVI.IMG, "error", PVI.content_onerror);
             PVI.DIV.appendChild(PVI.IMG);
             PVI.VID.volume = cfg.hz.mediaVolume / 100;
             PVI.VID.autoplay = true;
             PVI.VID.style.cssText = x + "box-shadow: 0 0 0 1px #f16529";
-            PVI.VID.addEventListener("loadeddata", PVI.content_onready);
-            PVI.VID.addEventListener("error", PVI.content_onerror, true);
-            PVI.VID.addEventListener("timeupdate", PVI.updateCaption);
+            addEvent(PVI.VID, "loadeddata", PVI.content_onready);
+            addEvent(PVI.VID, "error", PVI.content_onerror, true);
+            addEvent(PVI.VID, "timeupdate", PVI.updateCaption);
             PVI.DIV.appendChild(PVI.VID);
             if (cfg.hz.thumbAsBG || cfg.hz.history) {
-                PVI.IMG.addEventListener("load", PVI.content_onload);
-                PVI.VID.addEventListener("canplay", PVI.content_onload);
+                addEvent(PVI.IMG, "load", PVI.content_onload);
+                addEvent(PVI.VID, "canplay", PVI.content_onload);
             }
             if (cfg.hz.hideIdleCursor >= 50) {
                 PVI.DIV.cursor_hide = function () {
                     PVI.CNT.style.cursor = "none";
                     PVI.timers.cursor_hide = null;
                 };
-                PVI.DIV.addEventListener("mousemove", function (e) {
+                addEvent(PVI.DIV, "mousemove", function (e) {
                     if (e.target !== PVI.CNT || (PVI.CNT === PVI.VID && PVI.VID.clientHeight - 35 < (e.offsetY || e.layerY || 0))) {
-                        clearTimeout(PVI.timers.cursor_hide);
+                        clearTimer(PVI.timers.cursor_hide);
                         return;
                     }
-                    if (PVI.timers.cursor_hide) clearTimeout(PVI.timers.cursor_hide);
+                    if (PVI.timers.cursor_hide) clearTimer(PVI.timers.cursor_hide);
                     else PVI.CNT.style.cursor = "";
-                    PVI.timers.cursor_hide = setTimeout(PVI.DIV.cursor_hide, cfg.hz.hideIdleCursor);
+                    PVI.timers.cursor_hide = setTimer(PVI.DIV.cursor_hide, cfg.hz.hideIdleCursor);
                 });
-                PVI.DIV.addEventListener(
+                addEvent(PVI.DIV,
                     "mouseout",
                     function (e) {
                         if (e.target !== PVI.CNT) return;
-                        clearTimeout(PVI.timers.cursor_hide);
+                        clearTimer(PVI.timers.cursor_hide);
                         PVI.CNT.style.cursor = "";
                     },
                     false
                 );
             } else if (cfg.hz.hideIdleCursor >= 0) PVI.IMG.style.cursor = "none";
-            PVI.DIV.addEventListener(
+            addEvent(PVI.DIV,
                 "dragstart",
                 function (e) {
                     pdsp(e, false);
@@ -400,7 +463,7 @@
                 p = [x[y + "Property"].split(p), x[y + "Duration"].replace(/initial/g, "0s").split(p)];
                 PVI.anim.css = x[y] || PVI.DIV.style[y];
                 ["opacity", "left", "top", "width", "height"].forEach(function (el) {
-                    var idx = p[0].indexOf(el),
+                    let idx = p[0].indexOf(el),
                         val = parseFloat(p[1][idx]) * 1e3;
                     if (val > 0 && idx > -1) {
                         PVI.anim[el] = val;
@@ -446,7 +509,7 @@
                 { tag: "b", attrs: { style: "margin-right: 4px; display: none; color: rgb(204, 255, 208);" } },
                 { tag: "span", attrs: { style: "color: inherit; display: " + (cfg.hz.capText ? "inline-block" : "none") } },
             ]);
-            var e = PVI.CAP.firstElementChild;
+            let e = PVI.CAP.firstElementChild;
             do {
                 e.IMGS_ = e.IMGS_c = true;
             } while ((e = e.nextElementSibling));
@@ -491,21 +554,21 @@
 
         flash_caption: function () {
             PVI.timers.pileflicker = 0;
-            PVI.timers.pile_flash = setInterval(PVI.flick_caption, 150);
+            PVI.timers.pile_flash = setIntervalTimer(PVI.flick_caption, 150);
         },
 
         flick_caption: function () {
             if (PVI.timers.pileflicker++ >= cfg.hz.capFlashCount * 2) {
                 PVI.timers.pileflicker = null;
-                clearInterval(PVI.timers.pile_flash);
+                clearTimer(PVI.timers.pile_flash);
                 return;
             }
-            var s = PVI.CAP.firstChild.style;
+            let s = PVI.CAP.firstChild.style;
             s.backgroundColor = s.backgroundColor === PVI.palette.pile_bg ? "red" : PVI.palette.pile_bg;
         },
 
         updateCaption: function (e) {
-            var c = PVI.CAP,
+            let c = PVI.CAP,
                 h;
             if (!c || c.state === 0 || !PVI.TRG) return;
 
@@ -525,15 +588,15 @@
             }
 
             if (PVI.TRG?.IMGS_album)
-                if (c.firstChild.style.display === "none" && (h = PVI.stack[PVI.TRG.IMGS_album]) && h[2]) {
+                if (c.firstChild.style.display === "none" && (h = PVI.stack.get(PVI.TRG.IMGS_album)) && h[2]) {
                     h = c.firstChild.style;
                     h.color = PVI.palette.pile_fg;
                     h.backgroundColor = PVI.palette.pile_bg;
                     h.display = "inline-block";
                     if (cfg.hz.capFlashCount) {
                         if (cfg.hz.capFlashCount > 5) cfg.hz.capFlashCount = 5;
-                        clearTimeout(PVI.timers.pile_flash);
-                        PVI.timers.pile_flash = setTimeout(PVI.flash_caption, PVI.anim.maxDelay);
+                        clearTimer(PVI.timers.pile_flash);
+                        PVI.timers.pile_flash = setTimer(PVI.flash_caption, PVI.anim.maxDelay);
                     }
                 }
             if (PVI.CNT !== PVI.IFR) {
@@ -541,7 +604,7 @@
                 if (cfg.hz.capWH || c.state === 2) {
                     h.style.display = "inline-block";
                     h.style.color = PVI.palette[PVI.TRG.IMGS_HD === false ? "wh_fg_hd" : "wh_fg"];
-                    h.textContent = (PVI.TRG.IMGS_SVG ? PVI.stack[PVI.IMG.src] : [PVI.CNT.naturalWidth, PVI.CNT.naturalHeight]).join("×");
+                    h.textContent = (PVI.TRG.IMGS_SVG ? PVI.stack.get(PVI.IMG.src) : [PVI.CNT.naturalWidth, PVI.CNT.naturalHeight]).join("×");
                     const scale = Math.round(PVI.CNT.offsetHeight / PVI.CNT.naturalHeight * 100);
                     if (scale !== 100) h.textContent += ` (${scale}%)`;
                 } else h.style.display = "none";
@@ -557,7 +620,7 @@
 
         attrObserver: function (target, isStyle, oldValue) {
             if (isStyle) {
-                var bgImage = target.style.backgroundImage;
+                let bgImage = target.style.backgroundImage;
                 if (
                     (!bgImage || oldValue.indexOf(bgImage.slice(5, -2)) !== -1) &&
                     oldValue &&
@@ -571,10 +634,10 @@
 
         onAttrChange: function (e) {
             if (e.attrChange !== 1) return;
-            var target = e.target;
+            let target = e.target;
             switch (e.attrName) {
                 case "style":
-                    var bgImg = target.style.backgroundImage;
+                    let bgImg = target.style.backgroundImage;
                     if (
                         (!bgImg || e.prevValue.indexOf(bgImg.slice(5, -2)) !== -1) &&
                         e.prevValue.indexOf("opacity") === -1 &&
@@ -606,7 +669,7 @@
             delete node.IMGS_fallback_zoom;
             if (!keepAlbum) delete node.IMGS_album;
             if (node.localName !== "a") return;
-            var childNodes = node.querySelectorAll('img[src], :not(img)[style*="background-image"], b, i, u, strong, em, span, div');
+            let childNodes = node.querySelectorAll('img[src], :not(img)[style*="background-image"], b, i, u, strong, em, span, div');
             if (childNodes.length)
                 [].forEach.call(childNodes, function (el) {
                     if (el.IMGS_c) PVI.resetNode(el);
@@ -614,8 +677,8 @@
         },
 
         getImages: function (el) {
-            var imgs, p;
-            var isHTMLElement = el && el instanceof win.HTMLElement;
+            let imgs, p;
+            let isHTMLElement = el && el instanceof win.HTMLElement;
             if (isHTMLElement)
                 if (el.childElementCount > 0 && el.childElementCount < 3) {
                     imgs = el.firstElementChild;
@@ -684,14 +747,14 @@
         },
 
         _replace: function (rule, addr, http, param, to, trg) {
-            var ret, i;
+            let ret, i;
             if (typeof to === "function") PVI.node = trg;
-            var r = to ? addr.replace(rule[param], to) : addr;
+            let r = to ? addr.replace(rule[param], to) : addr;
             if (typeof to === "function") {
                 if (r === "") return 2;
                 else if (r === "null") return null;
                 if (r.indexOf("\n", 7) > -1) {
-                    var prefixSuffix = addr.replace(rule[param], "\r").split("\r");
+                    let prefixSuffix = addr.replace(rule[param], "\r").split("\r");
                     r = r.trim().split(/[\n\r]+/g);
                     ret = [];
                     for (i = 0; i < r.length; ++i) {
@@ -724,7 +787,7 @@
             return r;
         },
         replace: function (rule, addr, http, param, trg) {
-            var ret, i, j;
+            let ret, i, j;
             if (PVI.toFunction(rule, "to") === false) return 1;
             if (trg.IMGS_TRG) trg = trg.IMGS_TRG;
             http = http.slice(0, http.length - addr.length);
@@ -743,7 +806,7 @@
         toFunction: function (rule, param, inline) {
             if (typeof rule[param] !== "function" && (inline ? /^:\s*\S/ : /^:\n\s*\S/).test(rule[param])) {
                 try {
-                    rule[param] = Function("var $ = arguments; " + (inline ? "return " : "") + rule[param].slice(1)).bind(PVI);
+                    rule[param] = Function("let $ = arguments; " + (inline ? "return " : "") + rule[param].slice(1)).bind(PVI);
                 } catch (ex) {
                     console.error(cfg.app?.name + ": " + param + " - " + ex.message);
                     return false;
@@ -773,12 +836,12 @@
             if (!trg || trg.IMGS_c) return false;
             if (trg.IMGS_c_resolved && typeof trg.IMGS_c_resolved.URL !== "string") return false;
             URL = URL.replace(rgxHash, "");
-            if (PVI.stack[URL]) {
+            if (PVI.stack.get(URL)) {
                 trg.IMGS_album = URL;
-                URL = PVI.stack[URL];
+                URL = PVI.stack.get(URL);
                 return URL[URL[0]][0];
             }
-            var params, i;
+            let params, i;
             if (rule.rule) {
                 params = rule;
                 rule = params.rule;
@@ -797,17 +860,19 @@
                     return PVI.onMessage({ cmd: "resolved", id: -1, m: false, return_url: true, params: params });
                 } else delete rule.skip_resolve;
             if (!cfg.hz.waitHide && ((PVI.fireHide && PVI.state > 2) || PVI.state === 2 || (PVI.hideTime && Date.now() - PVI.hideTime < 200))) nowait = true;
-            if (!PVI.resolve_delay) clearTimeout(PVI.timers.resolver);
+            if (!PVI.resolve_delay) clearTimer(PVI.timers.resolver);
             trg.IMGS_c_resolved = { URL: URL, params: params };
-            PVI.timers.resolver = setTimeout(function () {
+            PVI.timers.resolver = setTimer(function () {
                 PVI.timers.resolver = null;
-                Port.send({ cmd: "resolve", url: URL, params: params, id: PVI.resolving.push(trg) - 1 });
+                const resolveId = Math.random().toString(36).slice(2);
+                PVI.resolving.set(resolveId, trg);
+                Port.send({ cmd: "resolve", url: URL, params: params, id: resolveId });
             }, PVI.resolve_delay || (nowait ? 50 : Math.max(50, cfg.hz.delay)));
             return null;
         },
 
         find: function (trg, x, y) {
-            var i = 0,
+            let i = 0,
                 n = trg,
                 ret = false,
                 URL,
@@ -831,9 +896,9 @@
                         for (i = 0; i < 5; ++i) {
                             if (tmp_el[i] === doc.body) break;
                             if (!tmp_el[i].currentSrc && tmp_el[i].style.backgroundImage.lastIndexOf("url(", 0) !== 0) continue;
-                            var elRect = tmp_el[i].getBoundingClientRect();
+                            let elRect = tmp_el[i].getBoundingClientRect();
                             if (x >= elRect.left && x < elRect.right && y >= elRect.top && y < elRect.bottom) {
-                                var trgRect = trg.getBoundingClientRect();
+                                let trgRect = trg.getBoundingClientRect();
                                 if (
                                     trgRect.left - 10 <= elRect.left &&
                                     trgRect.right + 10 >= elRect.right &&
@@ -971,7 +1036,7 @@
                 ];
                 if (typeof ret === "string") ret = [ret];
                 for (i = 0; i < ret.length; ++i) {
-                    var url = ret[i].replace(/^#?(https?:)?\/\//, "");
+                    let url = ret[i].replace(/^#?(https?:)?\/\//, "");
                     if (URL[1] === url) {
                         if (ret[i][0] === "#") {
                             use_img = ret = false;
@@ -1005,11 +1070,11 @@
                         // split with ", ", to avoid issues with URIs containing commas
                         // .split(/\s*,\s*/);
                         .split(/,\s+/);
-                    var j = URL.length;
+                    let j = URL.length;
                     while (j--) {
-                        var srcItem = URL[j].trim().split(/\s+/);
+                        let srcItem = URL[j].trim().split(/\s+/);
                         if (srcItem.length !== 2) continue;
-                        var descriptor = srcItem[1].slice(-1);
+                        let descriptor = srcItem[1].slice(-1);
                         if (descriptor === "x") srcItem[1] = trg.naturalWidth * srcItem[1].slice(0, -1);
                         else if (descriptor === "w") srcItem[1] = parseInt(srcItem[1], 10);
                         else continue;
@@ -1024,7 +1089,7 @@
                 if (rule.src && PVI.isEnlargeable(trg, rule)) rule = rule.src;
                 else if (PVI.isEnlargeable(trg)) rule = trg.currentSrc || trg.src;
                 else rule = null;
-                var oParent = trg;
+                let oParent = trg;
                 i = 0;
                 do {
                     if (oParent === doc.body || oParent.nodeType !== 1) break;
@@ -1108,22 +1173,22 @@
                 PVI.LDR.style.backgroundColor =
                     cfg.hz.LDRbgOpacity < 100 ? PVI.palette[msg].replace(/\(([^\)]+)/, "a($1, " + cfg.hz.LDRbgOpacity / 100) : PVI.palette[msg];
                 if (cfg.hz.LDRdelay > 20) {
-                    clearTimeout(PVI.timers.delayed_loader);
+                    clearTimer(PVI.timers.delayed_loader);
                     if (msg[0] !== "R" && PVI.state !== 3 && !PVI.fullZm) {
                         PVI.state = 3;
                         PVI.LDR_msg = msg;
-                        PVI.timers.delayed_loader = setTimeout(PVI.delayed_loader, cfg.hz.LDRdelay);
+                        PVI.timers.delayed_loader = setTimer(PVI.delayed_loader, cfg.hz.LDRdelay);
                         return;
                     }
                 }
             }
-            var box;
+            let box;
             if (msg) {
                 if (PVI.state === 2 && cfg.hz.waitHide) return;
                 viewportDimensions();
                 if (PVI.state < 3 || PVI.LDR_msg) {
                     PVI.LDR_msg = null;
-                    win.addEventListener("wheel", PVI.wheeler, { capture: true, passive: false });
+                    addEvent(win, "wheel", PVI.wheeler, { capture: true, passive: false });
                 }
                 if (msg === true) {
                     PVI.BOX = PVI.DIV;
@@ -1134,8 +1199,7 @@
                     if (typeof PVI.DIV.cursor_hide === "function") PVI.DIV.cursor_hide();
                 } else if (PVI.state < 4) {
                     if (PVI.anim.left || PVI.anim.top) {
-                        PVI.DIV.style.left = PVI.x + "px";
-                        PVI.DIV.style.top = PVI.y + "px";
+                        updateStyle(PVI.DIV, { left: PVI.x + "px", top: PVI.y + "px" });
                     }
                     if (PVI.anim.width || PVI.anim.height) PVI.DIV.style.width = PVI.DIV.style.height = "0";
                 }
@@ -1149,23 +1213,23 @@
                 box.display = "block";
                 if (box.opacity === "0" && ((PVI.BOX === PVI.DIV && PVI.anim.opacity) || (PVI.BOX === PVI.LDR && cfg.hz.LDRanimate)))
                     if (PVI.state === 2) PVI.anim.opacityTransition();
-                    else setTimeout(PVI.anim.opacityTransition, 0);
+                    else setTimer(PVI.anim.opacityTransition, 0);
                 PVI.state = PVI.BOX === PVI.LDR ? 3 : 4;
 
                 if (cfg.hz.fzDefault && PVI.state === 4) {
                     PVI.fzEnable();
                 }
             }
-            var x = PVI.x;
-            var y = PVI.y;
-            var rSide = winW - x;
-            var bSide = winH - y;
-            var left, top, rot, w, h, ratio;
+            let x = PVI.x;
+            let y = PVI.y;
+            let rSide = winW - x;
+            let bSide = winH - y;
+            let left, top, rot, w, h, ratio;
 
             if ((msg === undefined && PVI.state === 4) || msg === true) {
                 msg = false;
                 if (PVI.TRG.IMGS_SVG) {
-                    h = PVI.stack[PVI.IMG.src];
+                    h = PVI.stack.get(PVI.IMG.src);
                     w = h[0];
                     h = h[1];
                 } else {
@@ -1310,18 +1374,17 @@
                 top = y - top;
             }
             if (left !== undefined) {
-                PVI.BOX.style.left = Math.floor(left) + "px";
-                PVI.BOX.style.top = Math.floor(top) + "px";
+                updateStyle(PVI.BOX, { left: Math.floor(left) + "px", top: Math.floor(top) + "px" });
             }
             PVI.showHVR();
         },
         album: function (idx, manual) {
-            var s, i;
+            let s, i;
             if (!PVI.TRG || !PVI.TRG.IMGS_album) return;
-            var album = PVI.stack[PVI.TRG.IMGS_album];
+            let album = PVI.stack.get(PVI.TRG.IMGS_album);
             if (!album || album.length < 2) return;
             if (!PVI.fullZm && PVI.timers.no_anim_in_album) {
-                clearInterval(PVI.timers.no_anim_in_album);
+                clearTimer(PVI.timers.no_anim_in_album);
                 PVI.timers.no_anim_in_album = null;
                 PVI.DIV.style.transition = "all 0s";
             }
@@ -1366,7 +1429,7 @@
             PVI.set(album[idx][0]);
             s = (s <= idx && !(s === 1 && idx === album.length - 1)) || (s === album.length - 1 && idx === 1) ? 1 : -1;
             i = 0;
-            var until = cfg.hz.preload < 3 ? 1 : 3;
+            let until = cfg.hz.preload < 3 ? 1 : 3;
             while (i++ <= until) {
                 if (!album[idx + i * s] || idx + i * s < 1) return;
                 PVI._preload(album[idx + i * s][0]);
@@ -1374,7 +1437,7 @@
         },
 
         set: function (src) {
-            var i, src_left, src_HD;
+            let i, src_left, src_HD;
             if (!src) return;
             if (PVI.iFrame) {
                 i = PVI.TRG;
@@ -1383,14 +1446,14 @@
                         vdfDpshPtdhhd: "from_frame",
                         src: src,
                         thumb: i.IMGS_thumb ? [i.IMGS_thumb, i.IMGS_thumb_ok] : null,
-                        album: i.IMGS_album ? { id: i.IMGS_album, list: PVI.stack[i.IMGS_album] } : null,
+                        album: i.IMGS_album ? { id: i.IMGS_album, list: PVI.stack.get(i.IMGS_album) } : null,
                         caption: i.IMGS_caption,
                     },
                     "*"
                 );
                 return;
             }
-            clearInterval(PVI.timers.onReady);
+            clearTimer(PVI.timers.onReady);
             PVI.create();
             if (Array.isArray(src)) {
                 if (!src.length) {
@@ -1422,6 +1485,15 @@
                 PVI.checkContentRediness(src);
                 return;
             }
+            if (PVI.BACKDROP) {
+                const isTransparent = /\.(png|gif|webp|svg)/i.test(src);
+                if (isTransparent) {
+                    PVI.BACKDROP.style.backgroundImage = `url("${src}")`;
+                    PVI.BACKDROP.style.display = "block";
+                } else {
+                    PVI.BACKDROP.style.display = "none";
+                }
+            }
             if (/^[^?#]+\.(?:m(?:4[abprv]|p[34])|og[agv]|webm|mov|mk[av]|f4v)(?:$|[?#])/i.test(src) || /#(mp[34]|og[gv]|webm)$/i.test(src)) {
                 PVI.CNT = PVI.VID;
                 PVI.show("load");
@@ -1438,24 +1510,24 @@
             }
             if (cfg.hz.thumbAsBG) {
                 if (PVI.interlacer) PVI.interlacer.style.display = "none";
-                PVI.CNT.loaded = PVI.TRG.IMGS_SVG || PVI.stack[src] === 1;
+                PVI.CNT.loaded = PVI.TRG.IMGS_SVG || PVI.stack.get(src) === 1;
             }
-            if (!PVI.TRG.IMGS_SVG && !PVI.stack[src] && cfg.hz.preload === 1) new Image().src = src;
+            if (!PVI.TRG.IMGS_SVG && !PVI.stack.get(src) && cfg.hz.preload === 1) new Image().src = src;
             PVI.CNT.removeAttribute("src");
-            if (PVI.TRG.IMGS_SVG && !PVI.stack[src]) {
-                var svg = doc.createElement("img");
+            if (PVI.TRG.IMGS_SVG && !PVI.stack.get(src)) {
+                let svg = doc.createElement("img");
                 svg.style.cssText = ["position: fixed", "visibility: hidden", "max-width: 500px", ""].join(" !important;");
                 svg.onerror = PVI.content_onerror;
                 svg.src = src;
                 svg.counter = 0;
-                PVI.timers.onReady = setInterval(function () {
+                PVI.timers.onReady = setIntervalTimer(function () {
                     if (svg.width || svg.counter++ > 300) {
-                        var ratio = svg.width / svg.height;
-                        clearInterval(PVI.timers.onReady);
+                        let ratio = svg.width / svg.height;
+                        clearTimer(PVI.timers.onReady);
                         doc.body.removeChild(svg);
                         svg = null;
                         if (ratio) {
-                            PVI.stack[src] = [win.screen.width, Math.round(win.screen.width / ratio)];
+                            PVI.addToStack(src, [win.screen.width, Math.round(win.screen.width / ratio)]);
                             PVI.IMG.src = src;
                             PVI.assign_src();
                         } else PVI.show("Rload");
@@ -1469,17 +1541,17 @@
             PVI.checkContentRediness(src, true);
         },
         checkContentRediness: function (src, showLoader) {
-            if (PVI.CNT.naturalWidth || (PVI.TRG.IMGS_SVG && PVI.stack[src])) {
+            if (PVI.CNT.naturalWidth || (PVI.TRG.IMGS_SVG && PVI.stack.get(src))) {
                 PVI.assign_src();
                 return;
             }
             if (showLoader) PVI.show("load");
-            PVI.timers.onReady = setInterval(PVI.content_onready, PVI.CNT === PVI.IMG ? 100 : 300);
+            PVI.timers.onReady = setIntervalTimer(PVI.content_onready, PVI.CNT === PVI.IMG ? 100 : 300);
         },
 
         content_onready: function () {
             if (!PVI.CNT || !PVI.fireHide) {
-                clearInterval(PVI.timers.onReady);
+                clearTimer(PVI.timers.onReady);
                 if (!PVI.fireHide) PVI.reset();
                 return;
             }
@@ -1496,7 +1568,7 @@
                     PVI.VID._controls = PVI.VID.controls;
                     PVI.VID.controls = true;
                 } else PVI.VID.controls = PVI.fullZm ? true : PVI.VID._controls;
-                var autoplay = PVI.VID.autoplay;
+                let autoplay = PVI.VID.autoplay;
                 if (autoplay && PVI.VID.paused) {
                     let prom = PVI.VID.play();
                     if (prom) {
@@ -1508,17 +1580,17 @@
                     }
                 }
             } else if (!PVI.IMG.naturalWidth) return;
-            clearInterval(PVI.timers.onReady);
+            clearTimer(PVI.timers.onReady);
             PVI.assign_src();
         },
 
         content_onerror: function () {
-            clearInterval(PVI.timers.onReady);
+            clearTimer(PVI.timers.onReady);
             if (!PVI.TRG || this !== PVI.CNT) return;
-            var src_left;
-            var t = PVI.TRG;
-            var src_res_arr = t.IMGS_c_resolved;
-            var src = this.src;
+            let src_left;
+            let t = PVI.TRG;
+            let src_res_arr = t.IMGS_c_resolved;
+            let src = this.src;
             if (!src) return;
             this.removeAttribute("src");
             do src_left = Array.isArray(src_res_arr) ? src_res_arr.shift() : null;
@@ -1546,12 +1618,12 @@
         content_onload: function (e) {
             if (cfg.hz.thumbAsBG) this.loaded = true;
             if (PVI.TRG) delete PVI.TRG.IMGS_c_resolved;
-            if (PVI.stack[this.src] && !(PVI.TRG || e).IMGS_SVG) PVI.stack[this.src] = 1;
+            if (PVI.stack.get(this.src) && !(PVI.TRG || e).IMGS_SVG) PVI.addToStack(this.src, 1);
             if (PVI.interlacer) PVI.interlacer.style.display = "none";
         },
 
         history: function (manual) {
-            var url, i, n;
+            let url, i, n;
             if (!PVI.CNT || !PVI.TRG || chrome?.extension?.inIncognitoContext) return;
             if (manual) {
                 cfg.hz.history = !cfg.hz.history;
@@ -1560,7 +1632,7 @@
             manual = manual !== undefined;
             if (!manual && PVI.TRG.IMGS_nohistory) return;
             if (PVI.TRG.IMGS_album) {
-                url = PVI.stack[PVI.TRG.IMGS_album];
+                url = PVI.stack.get(PVI.TRG.IMGS_album);
                 if (!manual && (url.in_history || (url.length > 4 && url[0] === 1))) return;
                 url.in_history = !url.in_history;
             }
@@ -1592,10 +1664,10 @@
         isEnlargeable: function (img, oImg, isOverflow) {
             if (PVI.CNT && PVI.CNT !== PVI.IMG) return true;
             if (!oImg) oImg = img;
-            var w = img.clientWidth;
-            var h = img.clientHeight;
-            var ow = oImg.naturalWidth;
-            var oh = oImg.naturalHeight;
+            let w = img.clientWidth;
+            let h = img.clientHeight;
+            let ow = oImg.naturalWidth;
+            let oh = oImg.naturalHeight;
             if ((ow <= 64 && oh <= 64 && !isOverflow) || ow <= 1 || oh <= 1) return false;
             if (isOverflow) {
                 w = img.getBoundingClientRect();
@@ -1645,7 +1717,7 @@
                     PVI.TRG.IMGS_thumb = false;
                 }
                 if (PVI.CNT === PVI.IMG && !PVI.IMG.loaded && cfg.hz.thumbAsBG && PVI.TRG.IMGS_thumb !== false && !PVI.TRG.IMGS_album) {
-                    var inner_thumb, w, h;
+                    let inner_thumb, w, h;
                     if (typeof PVI.TRG.IMGS_thumb !== "string") {
                         PVI.TRG.IMGS_thumb = null;
                         if (PVI.TRG.hasAttribute("src")) PVI.TRG.IMGS_thumb = PVI.TRG.src;
@@ -1698,12 +1770,12 @@
             }
             delete PVI.TRG.IMGS_c_resolved;
             PVI.TRG.IMGS_c = PVI.CNT.src;
-            if (!PVI.TRG.IMGS_SVG) PVI.stack[PVI.IMG.src] = true;
+            if (!PVI.TRG.IMGS_SVG) PVI.addToStack(PVI.IMG.src, true);
             PVI.show(true);
             PVI.HD_cursor(PVI.TRG.IMGS_HD !== false);
             if (cfg.hz.history) PVI.history();
             if (!PVI.fullZm && PVI.anim.maxDelay && PVI.TRG.IMGS_album)
-                PVI.timers.no_anim_in_album = setTimeout(function () {
+                PVI.timers.no_anim_in_album = setTimer(function () {
                     PVI.DIV.style.transition = PVI.anim.css;
                 }, 100);
         },
@@ -1714,13 +1786,13 @@
             if (PVI.iFrame) {
                 win.parent.postMessage({ vdfDpshPtdhhd: "from_frame", hide: true }, "*");
                 return;
-            } else win.removeEventListener("mousemove", PVI.m_move, true);
+            } else removeEvent(win, "mousemove", PVI.m_move, true);
             if (PVI.state < 3 || PVI.LDR_msg || PVI.state === null) {
                 if (PVI.state >= 2) PVI.reset();
                 return;
             }
-            var animDIV = PVI.BOX === PVI.DIV && PVI.anim.maxDelay;
-            var animLDR = PVI.BOX === PVI.LDR && cfg.hz.LDRanimate;
+            let animDIV = PVI.BOX === PVI.DIV && PVI.anim.maxDelay;
+            let animLDR = PVI.BOX === PVI.LDR && cfg.hz.LDRanimate;
             if ((!animDIV && !animLDR) || PVI.fullZm) {
                 if (!cfg.hz.waitHide) PVI.hideTime = Date.now();
                 PVI.reset();
@@ -1740,16 +1812,16 @@
                 if (PVI.anim.height) PVI.DIV.style.height = "0";
             }
             if ((animDIV && PVI.anim.opacity) || animLDR) PVI.BOX.style.opacity = "0";
-            PVI.timers.anim_end = setTimeout(PVI.reset, PVI.anim.maxDelay, null, e.relatedTarget);
+            PVI.timers.anim_end = setTimer(PVI.reset, PVI.anim.maxDelay, null, e.relatedTarget);
         },
 
         reset: function (preventImmediateHover, target) {
             if (!PVI.DIV) return;
             if (PVI.iFrame) win.parent.postMessage({ vdfDpshPtdhhd: "from_frame", reset: true }, "*");
-            if (PVI.state) win.removeEventListener("mousemove", PVI.m_move, true);
+            if (PVI.state) removeEvent(win, "mousemove", PVI.m_move, true);
             PVI.node = null;
-            clearTimeout(PVI.timers.delayed_loader);
-            win.removeEventListener("wheel", PVI.wheeler, true);
+            clearTimer(PVI.timers.delayed_loader);
+            removeEvent(win, "wheel", PVI.wheeler, true);
             PVI.DIV.style.display = PVI.LDR.style.display = "none";
             PVI.DIV.style.width = PVI.DIV.style.height = "0";
             PVI.CNT.removeAttribute("src");
@@ -1781,10 +1853,10 @@
                 PVI.fullZm = false;
                 PVI.hideTime = null;
                 if (PVI.anim.maxDelay) PVI.DIV.style.transition = PVI.anim.css;
-                win.removeEventListener("click", PVI.fzClickAct, true);
-                win.addEventListener("mouseover", PVI.m_over, true);
-                doc.addEventListener("wheel", PVI.scroller, { capture: true, passive: true });
-                doc.documentElement.addEventListener("mouseleave", PVI.m_leave);
+                removeEvent(win, "click", PVI.fzClickAct, true);
+                addEvent(win, "mouseover", PVI.m_over, true);
+                addEvent(doc, "wheel", PVI.scroller, { capture: true, passive: true });
+                addEvent(doc.documentElement, "mouseleave", PVI.m_leave);
             }
             if (preventImmediateHover) {
                 PVI.lastScrollTRG = PVI.TRG;
@@ -1805,12 +1877,12 @@
             if (!e || shortcut.key(e) === cfg.hz.actTrigger) {
                 PVI.freeze = !cfg.hz.deactivate;
                 PVI.keyup_freeze_on = false;
-                win.removeEventListener("keyup", PVI.keyup_freeze, true);
+                removeEvent(win, "keyup", PVI.keyup_freeze, true);
             }
         },
 
         key_action: function (e) {
-            var pv, key;
+            let pv, key;
             if (!cfg) return;
 
             if (shortcut.isModifier(e)) {
@@ -1822,7 +1894,7 @@
                     else PVI.load(PVI.SRC === null ? PVI.TRG.IMGS_c_resolved : PVI.SRC);
                 PVI.freeze = !!cfg.hz.deactivate;
                 PVI.keyup_freeze_on = true;
-                win.addEventListener("keyup", PVI.keyup_freeze, true);
+                addEvent(win, "keyup", PVI.keyup_freeze, true);
                 return;
             }
 
@@ -1867,12 +1939,12 @@
                                 pv = true;
                                 if (Date.now() - PVI.timers.copy < 500) key = PVI.TRG.IMGS_caption;
                                 else key = PVI.CNT.src;
-                                var oncopy = function (ev) {
-                                    this.removeEventListener(ev.type, oncopy);
+                                let oncopy = function (ev) {
+                                    removeEvent(this, ev.type, oncopy);
                                     ev.clipboardData.setData("text/plain", key);
                                     ev.preventDefault();
                                 };
-                                doc.addEventListener("copy", oncopy);
+                                addEvent(doc, "copy", oncopy);
                                 doc.execCommand("copy");
                                 PVI.timers.copy = Date.now();
                             }
@@ -1963,8 +2035,8 @@
                     if (!pv && PVI.TRG.IMGS_album) {
                         switch (key) {
                             case "End":
-                                if (e.shiftKey && (pv = prompt("#", PVI.stack[PVI.TRG.IMGS_album].search || "") || null))
-                                    PVI.stack[PVI.TRG.IMGS_album].search = pv;
+                                if (e.shiftKey && (pv = prompt("#", PVI.stack.get(PVI.TRG.IMGS_album).search || "") || null))
+                                    PVI.stack.get(PVI.TRG.IMGS_album).search = pv;
                                 else pv = false;
                                 break;
                             case "Home":
@@ -2048,7 +2120,7 @@
             if (!PVI.fullZm || !PVI.TRG || cfg.hz.hiResOnFZ < 1) return false;
             if (PVI.TRG.IMGS_HD !== false) return false;
             if (PVI.IMG.naturalWidth < 800 && PVI.IMG.naturalHeight < 800) return false;
-            var ratio = PVI.IMG.naturalWidth / PVI.IMG.naturalHeight;
+            let ratio = PVI.IMG.naturalWidth / PVI.IMG.naturalHeight;
             if ((ratio < 1 ? 1 / ratio : ratio) < cfg.hz.hiResOnFZ) return false;
             PVI.show("load");
             PVI.key_action({ which: 9 });
@@ -2057,13 +2129,13 @@
 
         fzEnable: function (e) {
             if (!e && PVI.fullZm) return;
-            win.removeEventListener("mouseover", PVI.m_over, true);
-            doc.removeEventListener("wheel", PVI.scroller, true);
-            doc.documentElement.removeEventListener("mouseleave", PVI.m_leave, false);
+            removeEvent(win, "mouseover", PVI.m_over, true);
+            removeEvent(doc, "wheel", PVI.scroller, true);
+            removeEvent(doc.documentElement, "mouseleave", PVI.m_leave, false);
             PVI.fullZm = (cfg.hz.fzMode !== 1) !== !e?.shiftKey ? 1 : 2;
             PVI.switchToHiResInFZ();
             if (PVI.anim.maxDelay)
-                setTimeout(function () {
+                setTimer(function () {
                     if (PVI.fullZm) PVI.DIV.style.transition = "all 0s";
                 }, PVI.anim.maxDelay);
             if (PVI.CNT === PVI.VID) PVI.VID.controls = true;
@@ -2082,13 +2154,13 @@
                 PVI.m_move();
                 PVI.DIV.style.visibility = "visible";
             }
-            if (!PVI.iFrame) win.addEventListener("mousemove", PVI.m_move, true);
-            win.addEventListener("click", PVI.fzClickAct, true);
+            if (!PVI.iFrame) addEvent(win, "mousemove", PVI.m_move, true);
+            addEvent(win, "click", PVI.fzClickAct, true);
         },
 
         fzDragEnd: function () {
             PVI.fullZm = PVI.fullZm > 1 ? 2 : 1;
-            win.removeEventListener("mouseup", PVI.fzDragEnd, true);
+            removeEvent(win, "mouseup", PVI.fzDragEnd, true);
         },
 
         fzClickAct: function (e) {
@@ -2125,12 +2197,12 @@
                 PVI.y = e.clientY;
             }
             PVI.freeze = true;
-            win.addEventListener("mousemove", PVI.mover, true);
+            addEvent(win, "mousemove", PVI.mover, true);
         },
 
         mover: function (e) {
             if (PVI.x === e.clientX && PVI.y === e.clientY) return;
-            win.removeEventListener("mousemove", PVI.mover, true);
+            removeEvent(win, "mousemove", PVI.mover, true);
             if (PVI.keyup_freeze_on) {
                 PVI.lastScrollTRG = null;
                 return;
@@ -2174,7 +2246,7 @@
 
         wheeler: function (e) {
             if (e.clientX >= winW || e.clientY >= winH) return;
-            var d = cfg.hz.scrollDelay;
+            let d = cfg.hz.scrollDelay;
             if (PVI.state > 2 && d >= 20)
                 if (e.timeStamp - (PVI.lastScrollTime || 0) < d) d = null;
                 else PVI.lastScrollTime = e.timeStamp;
@@ -2235,9 +2307,9 @@
 
         resize: function (x, xy_img) {
             if (PVI.state !== 4 || !PVI.fullZm) return;
-            var s = PVI.TRG.IMGS_SVG ? PVI.stack[PVI.IMG.src].slice() : [PVI.CNT.naturalWidth, PVI.CNT.naturalHeight];
-            var k = cfg.keys;
-            var rot = PVI.DIV.curdeg % 180;
+            let s = PVI.TRG.IMGS_SVG ? PVI.stack.get(PVI.IMG.src).slice() : [PVI.CNT.naturalWidth, PVI.CNT.naturalHeight];
+            let k = cfg.keys;
+            let rot = PVI.DIV.curdeg % 180;
             viewportDimensions();
             if (rot) s.reverse();
             let winWI = winW - PVI.DBOX["wpb"] - PVI.DBOX["wm"];
@@ -2296,7 +2368,7 @@
         },
 
         m_over: function (e) {
-            var src, trg, cache;
+            let src, trg, cache;
             if (cfg.hz.deactivate && (PVI.freeze || e[cfg._freezeTriggerEventKey])) return;
             if (PVI.fireHide) {
                 if (e.target && (e.target.IMGS_ || ((e.relatedTarget || e).IMGS_ && e.target === PVI.TRG))) {
@@ -2308,10 +2380,10 @@
                     PVI.CAP.children[0].style.display = "none";
                     PVI.CAP.children[2].style.display = "none";
                 }
-                clearTimeout(PVI.timers.preview);
-                clearInterval(PVI.timers.onReady);
+                clearTimer(PVI.timers.preview);
+                clearTimer(PVI.timers.onReady);
                 if (PVI.timers.resolver) {
-                    clearTimeout(PVI.timers.resolver);
+                    clearTimer(PVI.timers.resolver);
                     PVI.timers.resolver = null;
                 }
                 if (e.relatedTarget) {
@@ -2356,18 +2428,18 @@
             if (cache || src || (src = PVI.find(trg, e.clientX, e.clientY)) || src === null) {
                 if (src === 1) src = false;
                 if (cfg.hz.capNoSBar) e.preventDefault();
-                clearTimeout(PVI.timers.preview);
-                if (!cfg.hz.waitHide) clearTimeout(PVI.timers.anim_end);
-                if (!PVI.iFrame) win.addEventListener("mousemove", PVI.m_move, true);
+                clearTimer(PVI.timers.preview);
+                if (!cfg.hz.waitHide) clearTimer(PVI.timers.anim_end);
+                if (!PVI.iFrame) addEvent(win, "mousemove", PVI.m_move, true);
                 if (!cache && src && !trg.IMGS_c_resolved) {
-                    if (cfg.hz.preload === 2 && !PVI.stack[src]) PVI._preload(src);
+                    if (cfg.hz.preload === 2 && !PVI.stack.get(src)) PVI._preload(src);
                     trg.IMGS_c_resolved = src;
                 }
                 PVI.TRG = trg;
                 PVI.SRC = cache || src;
                 PVI.x = e.clientX;
                 PVI.y = e.clientY;
-                var isFrozen = PVI.freeze && !cfg.hz.deactivate && !e[cfg._freezeTriggerEventKey];
+                let isFrozen = PVI.freeze && !cfg.hz.deactivate && !e[cfg._freezeTriggerEventKey];
                 if (
                     !isFrozen &&
                     (!cfg.hz.waitHide || cfg.hz.delay < 15) &&
@@ -2380,7 +2452,7 @@
                 }
                 if (PVI.fireHide && PVI.state > 2 && (cfg.hz.waitHide || !cfg.hz.deactivate)) {
                     PVI.hide(e);
-                    if (!PVI.anim.maxDelay && !PVI.iFrame) win.addEventListener("mousemove", PVI.m_move, true);
+                    if (!PVI.anim.maxDelay && !PVI.iFrame) addEvent(win, "mousemove", PVI.m_move, true);
                     if (PVI.hideTime) PVI.hideTime = 0;
                 }
                 PVI.fireHide = true;
@@ -2393,11 +2465,11 @@
                         PVI.showHVR(true);
                     }
                 if (isFrozen) {
-                    clearTimeout(PVI.timers.resolver);
+                    clearTimer(PVI.timers.resolver);
                     return;
                 }
-                var delay = (PVI.state === 2 || PVI.hideTime) && cfg.hz.waitHide ? Math.max(PVI.anim.maxDelay, cfg.hz.delay) : cfg.hz.delay;
-                if (delay) PVI.timers.preview = setTimeout(PVI.load, delay);
+                let delay = (PVI.state === 2 || PVI.hideTime) && cfg.hz.waitHide ? Math.max(PVI.anim.maxDelay, cfg.hz.delay) : cfg.hz.delay;
+                if (delay) PVI.timers.preview = setTimer(PVI.load, delay);
                 else PVI.load(PVI.SRC);
             } else {
                 trg.IMGS_c = true;
@@ -2407,10 +2479,10 @@
         },
 
         showHVR: function (visible = true, target) {
-            clearTimeout(PVI.timers.hvr_hide);
+            clearTimer(PVI.timers.hvr_hide);
             if (!visible) {
                 if (!target || target === PVI.TRG || target === PVI.DIV) {
-                    PVI.timers.hvr_hide = setTimeout(() => PVI.HVR.style.opacity = "0", 0);
+                    PVI.timers.hvr_hide = setTimer(() => PVI.HVR.style.opacity = "0", 0);
                 }
                 return;
             }
@@ -2432,7 +2504,7 @@
         },
 
         load: function (src) {
-            if ((cfg.hz.waitHide || !cfg.hz.deactivate) && PVI.anim.maxDelay && !PVI.iFrame) win.addEventListener("mousemove", PVI.m_move, true);
+            if ((cfg.hz.waitHide || !cfg.hz.deactivate) && PVI.anim.maxDelay && !PVI.iFrame) addEvent(win, "mousemove", PVI.m_move, true);
             if (!PVI.TRG) return;
             if (src === undefined) src = (cfg.hz.delayOnIdle && PVI.TRG.IMGS_c_resolved) || PVI.SRC;
             if (PVI.SRC !== undefined) PVI.SRC = undefined;
@@ -2468,7 +2540,7 @@
             }
             if (PVI.TRG.IMGS_album) {
                 PVI.createCAP();
-                PVI.album("" + PVI.stack[PVI.TRG.IMGS_album][0]);
+                PVI.album("" + PVI.stack.get(PVI.TRG.IMGS_album)[0]);
                 return;
             }
             PVI.set(src);
@@ -2488,7 +2560,7 @@
                     return;
                 }
 
-                var x = PVI.x,
+                let x = PVI.x,
                     y = PVI.y,
                     w,
                     h;
@@ -2508,10 +2580,10 @@
                         y = parseInt(w.top, 10) + e[1];
                     } else x = null;
                 } else {
-                    var rot = PVI.state === 4 && PVI.DIV.curdeg % 180;
+                    let rot = PVI.state === 4 && PVI.DIV.curdeg % 180;
                     if (PVI.BOX === PVI.DIV) {
                         if (PVI.TRG.IMGS_SVG) {
-                            h = PVI.stack[PVI.IMG.src];
+                            h = PVI.stack.get(PVI.IMG.src);
                             h = h[1] / h[0];
                         }
                         w = e[2] || parseInt(PVI.DIV.style.width, 10);
@@ -2530,13 +2602,11 @@
                     y = (h - PVI.DBOX["hpb"] > winH ? -((PVI.y * (h - winH + 80)) / winH) + 40 : (winH - h) / 2) - rot;
                 }
                 if (e[2] !== undefined) {
-                    PVI.BOX.style.width = e[2] + "px";
-                    PVI.BOX.style.height = e[3] + "px";
+                    updateStyle(PVI.BOX, { width: e[2] + "px", height: e[3] + "px" });
                     PVI.updateCaption();
                 }
                 if (x !== null) {
-                    PVI.BOX.style.left = Math.floor(x) + "px";
-                    PVI.BOX.style.top = Math.floor(y) + "px";
+                    updateStyle(PVI.BOX, { left: Math.floor(x) + "px", top: Math.floor(y) + "px" });
                 }
                 return;
             }
@@ -2545,9 +2615,9 @@
             if (PVI.freeze && !cfg.hz.deactivate && !e[cfg._freezeTriggerEventKey]) return;
             if (PVI.state < 3) {
                 if (cfg.hz.delayOnIdle && PVI.fireHide !== 1 && PVI.state < 2) {
-                    if (PVI.timers.resolver) clearTimeout(PVI.timers.resolver);
-                    clearTimeout(PVI.timers.preview);
-                    PVI.timers.preview = setTimeout(PVI.load, cfg.hz.delay);
+                    if (PVI.timers.resolver) clearTimer(PVI.timers.resolver);
+                    clearTimer(PVI.timers.preview);
+                    PVI.timers.preview = setTimer(PVI.load, cfg.hz.delay);
                 }
             } else if (
                 (e.target.IMGS_ && PVI.TBOX && (PVI.TBOX.Left > e.pageX || PVI.TBOX.Right < e.pageX || PVI.TBOX.Top > e.pageY || PVI.TBOX.Bottom < e.pageY)) ||
@@ -2568,9 +2638,9 @@
                 if (typeof srcs !== "string") return;
                 srcs = [srcs];
             }
-            for (var i = 0, lastIdx = srcs.length - 1; i <= lastIdx; ++i) {
-                var url = srcs[i];
-                var isHDUrl = url[0] === "#";
+            for (let i = 0, lastIdx = srcs.length - 1; i <= lastIdx; ++i) {
+                let url = srcs[i];
+                let isHDUrl = url[0] === "#";
                 if (!((cfg.hz.hiRes && isHDUrl) || (!cfg.hz.hiRes && !isHDUrl))) {
                     if (i !== lastIdx) continue;
                     if (i !== 0) {
@@ -2591,16 +2661,16 @@
                 if (!e || e.type !== "DOMNodeInserted") {
                     if (e === false) {
                         delete PVI.preloading;
-                        doc.body.removeEventListener("DOMNodeInserted", PVI.preload, true);
+                        removeEvent(doc.body, "DOMNodeInserted", PVI.preload, true);
                     }
                     return;
                 }
             } else {
                 e = null;
                 PVI.preloading = [];
-                doc.body.addEventListener("DOMNodeInserted", PVI.preload, true);
+                addEvent(doc.body, "DOMNodeInserted", PVI.preload, true);
             }
-            var nodes = (e && e.target) || doc.body;
+            let nodes = (e && e.target) || doc.body;
             if (
                 !nodes ||
                 nodes.IMGS_ ||
@@ -2612,9 +2682,9 @@
             nodes = [].slice.call(nodes);
             PVI.preloading = PVI.preloading ? PVI.preloading.concat(nodes) : PVI.preloading;
             nodes = function () {
-                var node, src;
-                var process_amount = 50;
-                var onImgError = function () {
+                let node, src;
+                let process_amount = 50;
+                let onImgError = function () {
                     this.src = this.IMGS_src_arr.shift().replace(/^#/, "");
                     if (!this.IMGS_src_arr.length) this.onerror = null;
                 };
@@ -2631,7 +2701,7 @@
                     if ((src = PVI.find(node))) {
                         node.IMGS_c_resolved = src;
                         if (Array.isArray(src)) {
-                            var i,
+                            let i,
                                 img = new Image();
                             img.IMGS_src_arr = [];
                             for (i = 0; i < src.length; ++i)
@@ -2646,12 +2716,12 @@
                     if (src === null || process_amount-- < 1) break;
                 }
                 PVI.resolve_delay = 0;
-                if (PVI.preloading.length) PVI.timers.preload = setTimeout(nodes, 300);
+                if (PVI.preloading.length) PVI.timers.preload = setTimer(nodes, 300);
                 else delete PVI.timers.preload;
             };
             if (PVI.timers.preload) {
-                clearTimeout(PVI.timers.preload);
-                PVI.timers.preload = setTimeout(nodes, 300);
+                clearTimer(PVI.timers.preload);
+                PVI.timers.preload = setTimer(nodes, 300);
             } else nodes();
         },
         toggle: function (disable) {
@@ -2675,12 +2745,12 @@
         },
 
         winOnMessage: function (e) {
-            var d = e.data;
-            var cmd = d && d.vdfDpshPtdhhd;
+            let d = e.data;
+            let cmd = d && d.vdfDpshPtdhhd;
             if (cmd === "toggle" || cmd === "preload" || cmd === "isFrame") {
-                var frms = win.frames;
+                let frms = win.frames;
                 if (!frms) return;
-                var i = frms.length;
+                let i = frms.length;
                 while (i--) {
                     if (!frms[i] || !frms[i].postMessage) continue;
                     try {
@@ -2690,7 +2760,7 @@
                 }
                 if (cmd === "isFrame") {
                     PVI.iFrame = d.parent === "BODY";
-                    if (!PVI.iFrame) win.addEventListener("resize", PVI.onWinResize, true);
+                    if (!PVI.iFrame) addEvent(win, "resize", PVI.onWinResize, true);
                 } else PVI[cmd](d);
             } else if (cmd === "from_frame") {
                 if (PVI.iFrame) {
@@ -2719,8 +2789,8 @@
                 PVI.TRG.IMGS_caption = d.caption;
                 if (d.album) {
                     PVI.TRG.IMGS_album = d.album.id;
-                    if (!PVI.stack[d.album.id]) PVI.stack[d.album.id] = d.album.list;
-                    d.album = "" + PVI.stack[d.album.id][0];
+                    if (!PVI.stack.get(d.album.id)) PVI.addToStack(d.album.id, d.album.list);
+                    d.album = "" + PVI.stack.get(d.album.id)[0];
                 }
                 if (d.thumb && d.thumb[0]) {
                     PVI.TRG.IMGS_thumb = d.thumb[0];
@@ -2734,9 +2804,9 @@
         onMessage: function (d) {
             if (!d) return;
             if (d.cmd === "resolved") {
-                var trg = PVI.resolving[d.id] || PVI.TRG;
-                var rule = cfg.sieve[d.params.rule.id];
-                delete PVI.resolving[d.id];
+                let trg = PVI.resolving.get(d.id) || PVI.TRG;
+                let rule = cfg.sieve[d.params.rule.id];
+                PVI.resolving.delete(d.id);
                 if (!d.return_url) PVI.create();
                 if (!d.cache && (d.m === true || d.params.rule.skip_resolve)) {
                     try {
@@ -2768,14 +2838,14 @@
                             });
                             if (d.m.length > 1) {
                                 trg.IMGS_album = d.params.url;
-                                if (PVI.stack[d.params.url]) {
-                                    d.m = PVI.stack[d.params.url];
+                                if (PVI.stack.get(d.params.url)) {
+                                    d.m = PVI.stack.get(d.params.url);
                                     d.m = d.m[d.m[0]];
                                 } else {
                                     PVI.createCAP();
                                     d.idx = Math.max(1, Math.min(d.idx, d.m.length)) || 1;
                                     d.m.unshift(d.idx);
-                                    PVI.stack[d.params.url] = d.m;
+                                    PVI.addToStack(d.params.url, d.m);
                                     d.m = d.m[d.idx];
                                     d.idx += "";
                                 }
@@ -2844,6 +2914,8 @@
             if (deinit) {
                 PVI.reset();
                 PVI.state = 0;
+                removeAllEvents();
+                clearAllTimers();
                 if (PVI.DIV) {
                     doc.documentElement.removeChild(PVI.DIV);
                     doc.documentElement.removeChild(PVI.LDR);
@@ -2866,13 +2938,13 @@
                     PVI.freeze = !cfg.hz.deactivate;
                     cfg._freezeTriggerEventKey = cfg.hz.actTrigger.toLowerCase() + "Key";
                     PVI.convertSieveRegexes();
-                    var pageLoaded = function () {
-                        doc.removeEventListener("DOMContentLoaded", pageLoaded);
+                    let pageLoaded = function () {
+                        removeEvent(doc, "DOMContentLoaded", pageLoaded);
                         if (doc.body) doc.body.IMGS_c = true;
                         if (cfg.hz.preload === 3) PVI.preload();
                         PVI.create();
                     };
-                    if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", pageLoaded);
+                    if (doc.readyState === "loading") addEvent(doc, "DOMContentLoaded", pageLoaded);
                     else pageLoaded();
                 } else if (!cfg?.sieve) {
                     PVI.initOnMouseMoveEnd();
@@ -2904,11 +2976,11 @@
             }
             if (deinit) return;
             PVI.mutObserver = new win.MutationObserver(function (muts) {
-                var i = muts.length;
+                let i = muts.length;
                 while (i--) {
-                    var m = muts[i];
-                    var trg = m.target;
-                    var attr = m.attributeName;
+                    let m = muts[i];
+                    let trg = m.target;
+                    let attr = m.attributeName;
                     notTRG: if (trg !== PVI.TRG) {
                         if (PVI.TRG) if (trg.contains(PVI.TRG) || PVI.TRG.contains(trg)) break notTRG;
                         PVI.attrObserver(trg, attr === "style", m.oldValue);
@@ -2917,7 +2989,7 @@
                     if (attr === "title" || attr === "alt") {
                         if (trg[attr] === "") continue;
                     } else if (attr === "style") {
-                        var bgImg = trg.style.backgroundImage;
+                        let bgImg = trg.style.backgroundImage;
                         if (!bgImg) continue;
                         if (m.oldValue.indexOf(bgImg) !== -1) continue;
                     }
@@ -2928,14 +3000,14 @@
         },
 
         _: function (varName) {
-            var value;
-            var evName = Math.random().toString(36).slice(2);
-            var callback = function (e) {
-                this.removeEventListener(e.type, callback);
+            let value;
+            let evName = Math.random().toString(36).slice(2);
+            let callback = function (e) {
+                removeEvent(this, e.type, callback);
                 value = e.detail;
             };
-            win.addEventListener(evName, callback);
-            var script = doc.createElement("script");
+            addEvent(win, evName, callback);
+            let script = doc.createElement("script");
             script.textContent = "dispatchEvent(new CustomEvent('" + evName + "', {bubbles: false, detail: window['" + varName + "']}))";
             doc.body.appendChild(script).parentNode.removeChild(script);
             return value;
@@ -2954,7 +3026,7 @@
         },
 
         initOnMouseMoveEnd: function (triggerMouseover) {
-            window.removeEventListener("mousemove", PVI.onInitMouseMove, true);
+            removeEvent(window, "mousemove", PVI.onInitMouseMove, true);
             if (cfg && triggerMouseover && (!PVI.x || PVI.state !== null)) PVI.m_over(PVI.capturedMoveEvent);
             delete PVI.onInitMouseMove;
             delete PVI.capturedMoveEvent;
@@ -2962,6 +3034,6 @@
         },
     };
 
-    window.addEventListener("mousemove", PVI.onInitMouseMove, true);
+    addEvent(window, "mousemove", PVI.onInitMouseMove, true);
     catchEvent.onmessage = PVI.winOnMessage;
 })(window, document);
