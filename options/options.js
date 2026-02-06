@@ -1,11 +1,9 @@
 "use strict";
 
-var input_changes = {};
-var $ = function (id) {
-    return document.getElementById(id);
-};
+const input_changes = {};
+const $ = (id) => document.getElementById(id);
 
-const _ = function (msg) {
+const _ = (msg) => {
     try {
         return chrome.i18n.getMessage(msg) || msg;
     } catch (err) {
@@ -13,21 +11,21 @@ const _ = function (msg) {
     }
 };
 
-let insertHTML = function (element, html) {
-    var allowedTags =
+let insertHTML = (element, html) => {
+    let allowedTags =
             /^([apbiusq]|d(iv|el)|em|h[1-6]|i(mg|ns)|s((pan|mall)|u[bp])|[bh]r|pre|code|blockquote|[ou]l|li|d[ltd]|t([rhd]|able|head|body|foot)|svg|symbol|line|path)$/i,
         allowedAttrs = /^(data-|stroke-|(class|style|xmlns|viewBox|i?d|fill|line(cap|join)|transform|[xy][12])$)/i,
         tempBody = document.implementation.createHTMLDocument("").body;
-    var cleanNode = function (node) {
-        var childCount = node.childElementCount;
-        var children = node.children || node.childNodes;
+    let cleanNode = function (node) {
+        let childCount = node.childElementCount;
+        let children = node.children || node.childNodes;
         while (childCount--) {
-            var child = children[childCount];
+            let child = children[childCount];
             if (child.nodeType !== Node.TEXT_NODE) {
                 if (allowedTags.test(child.nodeName)) {
-                    var attrCount = child.attributes.length;
+                    let attrCount = child.attributes.length;
                     while (attrCount--) {
-                        var attrName = child.attributes[attrCount].name;
+                        let attrName = child.attributes[attrCount].name;
                         if (!allowedAttrs.test(attrName)) {
                             child.removeAttribute(attrName);
                         }
@@ -41,15 +39,15 @@ let insertHTML = function (element, html) {
             }
         }
     };
-    insertHTML = function (element, html) {
+    insertHTML = (element, html) => {
         if (element && typeof html === "string") {
             if (html.indexOf("<") !== -1) {
                 tempBody.innerHTML = html;
                 cleanNode(tempBody);
-                var doc = element.ownerDocument;
-                var fragment = doc.createDocumentFragment();
+                const doc = element.ownerDocument;
+                const fragment = doc.createDocumentFragment();
                 while (tempBody.firstChild) {
-                    var node = tempBody.firstChild;
+                    let node = tempBody.firstChild;
                     node = doc.adoptNode(node);
                     fragment.appendChild(node);
                 }
@@ -62,9 +60,9 @@ let insertHTML = function (element, html) {
     insertHTML(element, html);
 };
 
-var processLNG = function (nodes) {
-    var els, l, args, attrs, attrnode, string;
-    var i = nodes.length;
+const processLNG = (nodes) => {
+    let els, l, args, attrs, attrnode, string;
+    let i = nodes.length;
     while (i--) {
         if (nodes[i].lng_loaded) continue;
         els = nodes[i].querySelectorAll("[data-lng]");
@@ -98,7 +96,7 @@ var processLNG = function (nodes) {
     }
 };
 
-var color_trans = function (node, color, time) {
+let color_trans = function (node, color, time) {
     clearTimeout(node.col_trans_timer);
     if (color === null) {
         node.style.color = "";
@@ -111,8 +109,8 @@ var color_trans = function (node, color, time) {
     }, time || 2e3);
 };
 
-var ImprtHandler = function (caption, data_handler, hide_opts) {
-    var x,
+let ImprtHandler = function (caption, data_handler, hide_opts) {
+    let x,
         importer = $("importer"),
         textArea = importer.querySelector("textarea");
     processLNG([importer]);
@@ -126,7 +124,7 @@ var ImprtHandler = function (caption, data_handler, hide_opts) {
         x[1].parentNode.style.display = hide_opts.overwrite ? "none" : "";
         x[0].checked = x[1].checked = false;
     }
-    var imprt_file = $("imprt_file");
+    let imprt_file = $("imprt_file");
     if (imprt_file.onchange) {
         importer.visible(true);
         return;
@@ -145,7 +143,7 @@ var ImprtHandler = function (caption, data_handler, hide_opts) {
     };
     importer.querySelector("b").onclick = importer.visible;
     importer.ondata = function (data, button) {
-        var options = this.querySelectorAll('input[type="checkbox"]');
+        let options = this.querySelectorAll('input[type="checkbox"]');
         options = { clear: options[0].checked, overwrite: options[1].checked };
         if (importer.data_handler(data, options) === false) color_trans(button, "red");
         else {
@@ -156,7 +154,7 @@ var ImprtHandler = function (caption, data_handler, hide_opts) {
     importer.readfile = function (file) {
         if (file.size > 5242880) color_trans(imprt_file.parentNode, "red");
         else {
-            var reader = new FileReader();
+            let reader = new FileReader();
             reader.onerror = function () {
                 color_trans(imprt_file.parentNode, "red");
             };
@@ -224,28 +222,28 @@ var ImprtHandler = function (caption, data_handler, hide_opts) {
     importer.visible(true);
 };
 
-var fill_output = function (e) {
+let fill_output = function (e) {
     e = e.target || e;
-    var op = e.previousElementSibling;
+    let op = e.previousElementSibling;
     op.textContent = op.dataset["as_percent"] ? parseInt(e.value * 100, 10) : e.value;
 };
 
-var color_text_input = function (e) {
+let color_text_input = function (e) {
     e = e.type === "input" ? this : e;
-    var v = /^#([\da-f]{3}){1,2}$/i.test(e.value) ? e.value : "#ffffff";
+    let v = /^#([\da-f]{3}){1,2}$/i.test(e.value) ? e.value : "#ffffff";
     e.previousElementSibling.value = v.length === 4 ? "#" + v[1] + v[1] + v[2] + v[2] + v[3] + v[3] : v;
 };
 
-var color_change = function () {
+let color_change = function () {
     this.nextElementSibling.value = this.value;
 };
 
-var setDefault = function (query) {
+let setDefault = function (query) {
     if (!query) return;
     [].forEach.call(typeof query === "string" ? document.querySelectorAll(query) : [query], function (el) {
         if (el.type === "checkbox") el.checked = el.defaultChecked;
         else if (/^SELECT/i.test(el.type))
-            for (var i = el.length; i--; ) {
+            for (let i = el.length; i--; ) {
                 if (el[i].hasAttribute("selected")) {
                     el.selectedIndex = i;
                     break;
@@ -258,8 +256,8 @@ var setDefault = function (query) {
     });
 };
 
-var load = function () {
-    var fields = document.querySelectorAll("input[name*=_], select[name*=_], textarea[name*=_]"),
+let load = function () {
+    let fields = document.querySelectorAll("input[name*=_], select[name*=_], textarea[name*=_]"),
         i = fields.length,
         j,
         m,
@@ -319,12 +317,12 @@ var load = function () {
     document.querySelector("label[for='keys_hz-fullZm'] .extra").innerHTML = fzExtra ? ", " + fzExtra : "";
 };
 
-var save = async function () {
-    var i, m, fld, fldType, host, shidx, shosts, pref;
-    var fields = document.querySelectorAll("input[name*=_], select[name*=_], textarea[name*=_]");
-    var prefs = {};
-    var rgxNewLine = /[\r\n]+/;
-    var rgxGrant = /^(?:(;.+)|([!~]{1,2}):(.+))/;
+let save = async function () {
+    let i, m, fld, fldType, host, shidx, shosts, pref;
+    let fields = document.querySelectorAll("input[name*=_], select[name*=_], textarea[name*=_]");
+    let prefs = {};
+    let rgxNewLine = /[\r\n]+/;
+    let rgxGrant = /^(?:(;.+)|([!~]{1,2}):(.+))/;
     if (SieveUI.loaded) prefs.sieve = JSON.stringify(SieveUI.prepareRules());
     for (i = 0; i < fields.length; ++i) {
         fld = fields[i];
@@ -341,8 +339,8 @@ var save = async function () {
         } else if (pref[0] === "grants") {
             prefs.grants = [];
             if (fld.value === "") continue;
-            var grant;
-            var grnts = fld.value.trim().split(rgxNewLine);
+            let grant;
+            let grnts = fld.value.trim().split(rgxNewLine);
             if (!grnts.length) continue;
             for (shidx = 0; shidx < grnts.length; ++shidx)
                 if ((grant = rgxGrant.exec(grnts[shidx].trim()))) {
@@ -374,13 +372,13 @@ var save = async function () {
     await readCfg();
 };
 
-var download = function (data, filename, exportAsText) {
-    var a = document.createElement("a");
+let download = function (data, filename, exportAsText) {
+    let a = document.createElement("a");
     if (exportAsText || a.download === void 0 || !URL.createObjectURL) {
         Port.send({ cmd: "open", url: "data:text/plain;charset=utf-8," + encodeURIComponent(data) });
         return;
     }
-    var blobUrl = URL.createObjectURL(new Blob([data], { type: "text/plain" }));
+    let blobUrl = URL.createObjectURL(new Blob([data], { type: "text/plain" }));
     a.href = blobUrl;
     a.download = (filename || "").replace(/\s/g, "_");
     a.dispatchEvent(new MouseEvent("click"));
@@ -389,8 +387,8 @@ var download = function (data, filename, exportAsText) {
     }, 1000);
 };
 
-var prefs = function (data, options, ev) {
-    var i,
+let prefs = function (data, options, ev) {
+    let i,
         pref_keys = ["hz", "keys", "tls", "grants"];
     if (typeof data === "object") {
         if (JSON.stringify(data) === "{}") return false;
@@ -406,7 +404,7 @@ var prefs = function (data, options, ev) {
 
 function onValueChange (e) {
     if (e.stopPropagation) e.stopPropagation();
-    var t = e.target;
+    let t = e.target;
     if (t.placeholder) return;
 
     const id = t.id || t.name || t.dataset.id;
@@ -420,7 +418,7 @@ function onValueChange (e) {
 }
 
 window.onhashchange = function () {
-    var section,
+    let section,
         args = [],
         menu = $("nav_menu"),
         old = (menu && menu.active && menu.active.hash.slice(1)) || "settings",
@@ -461,15 +459,15 @@ window.onhashchange = function () {
             section.querySelector("h3:not([data-lng])").textContent = " v" + app.version;
             Port.listen(function (response) {
                 Port.listen(null);
-                var alpha2,
+                let alpha2,
                     td2,
                     locales = [];
-                var lng_map = function (el, idx) {
+                let lng_map = function (el, idx) {
                     el.name = (el.name || el.fullname || "") + (el.fullname && el.name ? " (" + el.fullname + ")" : "") || el.email || el.web;
                     if (idx) td2.nodes.push(", ");
                     td2.nodes.push(el.email || el.web ? { tag: "a", attrs: { href: el.email ? "mailto:" + el.email : el.web }, text: el.name } : el.name);
                 };
-                var locales_json = JSON.parse(response);
+                let locales_json = JSON.parse(response);
                 for (alpha2 in locales_json) {
                     if (alpha2 === "_") continue;
                     td2 = { tag: "td" };
@@ -510,13 +508,13 @@ window.addEventListener(
         app.version = manifest.version;
 
         document.title = `:: ${app.name} ::`;
-        var tmp = $("app_version");
+        let tmp = $("app_version");
         tmp.textContent = app.name + " v" + app.version;
 
-        var menu = $("nav_menu");
+        let menu = $("nav_menu");
         processLNG(document.querySelectorAll('body > *'));
         if ((tmp = document.querySelectorAll('input[type="color"] + output + input[type="range"], textarea[name="tls_sendToHosts"]'))) {
-            var range_onchange = function () {
+            let range_onchange = function () {
                 this.parentNode.firstElementChild.style.opacity = this.value;
             };
             [].forEach.call(tmp, function (el) {
@@ -535,13 +533,13 @@ window.addEventListener(
         };
 
         function keyHandler(e) {
-            var key = shortcut.key(e, true);
+            let key = shortcut.key(e, true);
             if (e.repeat || !e.target.name?.startsWith("keys_") || e.ctrlKey || e.altKey || e.metaKey || !key) return;
             e.stopPropagation();
             e.preventDefault();
             color_trans(e.target, null);
-            var keys = document.body.querySelectorAll('input[name^="keys_"]');
-            for (var i = 0; i < keys.length; ++i) {
+            let keys = document.body.querySelectorAll('input[name^="keys_"]');
+            for (let i = 0; i < keys.length; ++i) {
                 if (keys[i].value.toUpperCase() === key.toUpperCase() && e.target !== keys[i]) {
                     color_trans(e.target, "red");
                     color_trans(keys[i], "red");
@@ -559,7 +557,7 @@ window.addEventListener(
             "contextmenu",
             function (e) {
                 e.stopPropagation();
-                var t = e.target;
+                let t = e.target;
                 if (t.classList.contains("checkbox")) t = t.previousElementSibling;
                 if (!t.name || t.name.indexOf("_") === -1) return;
                 if (e.ctrlKey) {
@@ -581,7 +579,7 @@ window.addEventListener(
             false
         );
         document.forms[0].onchange = onValueChange;
-        var reset_button = $("reset_button");
+        let reset_button = $("reset_button");
         reset_button.reset = function () {
             delete reset_button.pending;
             reset_button.style.color = "#000";
@@ -631,7 +629,7 @@ window.addEventListener(
         await readCfg();
         load();
         window.onhashchange();
-        var advanced_prefs = $("tls_advanced");
+        let advanced_prefs = $("tls_advanced");
         advanced_prefs.onchange = function () {
             document.body.classList[this.checked ? "add" : "remove"]("advanced");
         };
@@ -691,7 +689,7 @@ async function checkUserScripts() {
     try {
         const scripts = await chrome.userScripts.getScripts();
         if (scripts?.length > 0) {
-            msg.innerHTML = _("APP_READY").replace('"Imagus"', app.name);
+            msg.innerHTML = _("APP_READY").replace('"Imagus Ultra"', app.name);
             msg.style.backgroundColor = "#dcfad7";
             return;
         } else {

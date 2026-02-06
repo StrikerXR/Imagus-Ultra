@@ -1,6 +1,6 @@
 "use strict";
 
-var sieve_sec,
+let sieve_sec,
     sieve_container,
     SieveUI = {
         loaded: false,
@@ -24,7 +24,7 @@ var sieve_sec,
                 } else if (e.keyCode === 13) {
                     e.preventDefault();
                     SieveUI.search();
-                    var visibles = document.querySelectorAll("#sieve_container > div:not(.hidden)");
+                    let visibles = document.querySelectorAll("#sieve_container > div:not(.hidden)");
                     if (visibles.length === 1) {
                         visibles[0].classList.toggle("opened");
                         if (!visibles[0].lastElementChild.textContent) SieveUI.genData(visibles[0]);
@@ -137,7 +137,7 @@ var sieve_sec,
                         SieveUI.update();
                         break;
                     case "show-details":
-                        var t = $("sieve_tips").style;
+                        let t = $("sieve_tips").style;
                         t.display = "none" === t.display ? "block" : "none";
                 }
             };
@@ -145,7 +145,7 @@ var sieve_sec,
         load: function (local_sieve, options) {
             if (!local_sieve && SieveUI.loaded) return;
             try {
-                var ignored_rules, name, rule, sfrag, visible_rules, i;
+                let ignored_rules, name, rule, sfrag, visible_rules, i;
                 sieve_sec = $("sieve_sec");
                 sieve_container = $("sieve_container");
                 if (local_sieve) ignored_rules = [];
@@ -185,7 +185,7 @@ var sieve_sec,
             if (!SieveUI.loaded) SieveUI.init();
         },
         prepareRules: function (ignore_dupes) {
-            var rgxWhitespace = /\s+/g,
+            let rgxWhitespace = /\s+/g,
                 output = {},
                 dupes = [],
                 rules = sieve_sec.querySelectorAll("#sieve_container > div"),
@@ -289,7 +289,7 @@ var sieve_sec,
         },
         genData: function (container, data) {
             ++this.cntr;
-            var vals = container.lastChild,
+            let vals = container.lastChild,
                 c = "[" + this.cntr + "]",
                 sd = data || this.sieve[container.rule] || {};
 
@@ -441,7 +441,7 @@ var sieve_sec,
             }
         },
         genEntry: function (name, data, open) {
-            var container = document.createElement("div");
+            let container = document.createElement("div");
             if (data?.off) container.classList.add("disabled");
             if (open) container.classList.add("opened");
             container.rule = name;
@@ -455,7 +455,7 @@ var sieve_sec,
         },
         add: function () {
             sieve_container.insertBefore(this.genEntry(), sieve_container.firstElementChild);
-            var rd = sieve_container.firstElementChild,
+            let rd = sieve_container.firstElementChild,
             rd_fc = rd.querySelector(':scope > [data-action="rule"]');
             rd_fc.click();
             rd.querySelector('[data-action="rename"]').click();
@@ -463,7 +463,7 @@ var sieve_sec,
             $("save_button").classList.add("alert");
         },
         select: function (type, i, until) {
-            var cl;
+            let cl;
             i = i || 0;
             until = until || sieve_container.childElementCount;
             for (; i < until; ++i) {
@@ -523,7 +523,7 @@ var sieve_sec,
         move: function (e) {
             e.stopPropagation();
             SieveUI.lastXY = [e.clientX, e.clientY];
-            var div = e.target.parentNode,
+            let div = e.target.parentNode,
                 i,
                 list;
             if (e.target.isContentEditable || e.target.nodeName !== "SPAN" || div.classList.contains("opened") || e.button !== 0) return;
@@ -538,7 +538,7 @@ var sieve_sec,
             };
             document.onmouseup = function (e) {
                 if (div.classList.contains("move") && e.target.parentNode.rule) {
-                    var dcfr = document.createDocumentFragment();
+                    let dcfr = document.createDocumentFragment();
                     for (i = 0; i < list.length; ++i) {
                         sieve_container.removeChild(list[i]);
                         dcfr.appendChild(list[i]);
@@ -555,7 +555,7 @@ var sieve_sec,
         },
         export: function (e, rules, copy) {
             if (!sieve_container.childElementCount) return;
-            var selected = rules || sieve_container.querySelectorAll("div.selected"),
+            let selected = rules || sieve_container.querySelectorAll("div.selected"),
                 sieve = SieveUI.prepareRules(true),
                 exp = {};
             if (!sieve) return;
@@ -576,7 +576,7 @@ var sieve_sec,
                         alert("Failed to copy to clipboard.");
                     });
                 } else {
-                    download(exp, `Imagus_${name}.json`, e?.ctrlKey || e?.metaKey);
+                    download(exp, `ImagusUltra_${name}.json`, e?.ctrlKey || e?.metaKey);
                 }
             }
         },
@@ -592,7 +592,7 @@ var sieve_sec,
             $("save_button").classList.add("alert");
         },
         remove: function (rules) {
-            var list = rules || sieve_container.querySelectorAll("div.selected");
+            let list = rules || sieve_container.querySelectorAll("div.selected");
             let names = [...list].map(d => d.querySelector('[data-action="rule"]').textContent).join(", ") || "All rules";
             if (!confirm(_("DELITEMS") + "\n\n" + names)) return;
 
@@ -660,7 +660,7 @@ var sieve_sec,
         },
 
         search: function () {
-            var str = SieveUI.search_f.value,
+            let str = SieveUI.search_f.value,
                 what = RegExp(str.trim() || ".", "i"),
                 list = sieve_container.children,
                 i = list.length;

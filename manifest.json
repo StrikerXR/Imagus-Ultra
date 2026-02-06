@@ -14,7 +14,7 @@
    "incognito": "split",
    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwBQ6p0o7EpNcd1m1/sLR2VcVYJZtGiOcz/I/+/7brOp8fB/ZPaYB6V0q0DUD5SXb3NM9SO+FXUMJtnH5G7ivGL+ekdej2VYaHaIm1mUWP57EZ8nQHSfLSjTbMBaVoTwGq0IMSTZ+VMpf7GePLvnNaG6924pXWHB3XNBj/myZsNTSl6SMGhzSbY4NNpUHJBKOStLuGwSRtRSd9Y8iMF0zTz+9kXFw3tbReEZd7i5kihid4psbequHHso9Y3KPPdlIxqUZb5t/i3zGAwGr87bwkZ2I+UPvuw1T/olNCXO9YSpUsSKV8ilYbUsbefzNDkqZTPokFxWNnUE+Vh8FqguuqwIDAQAB",
    "manifest_version": 3,
-   "name": "Imagus Reborn",
+   "name": "Imagus Ultra",
    "options_ui": {
       "open_in_tab": true,
       "page": "options/options.html"

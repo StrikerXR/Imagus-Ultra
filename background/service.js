@@ -405,7 +405,7 @@ async function download(msg, incognito, sendResponse) {
 
     if (!msg.alterDownload) {
         /* await chrome.notifications.create(
-            "imagus_download",
+            "imagus_ultra_download",
             {
                 title: manifest.name,
                 message: "Download started...",
@@ -443,7 +443,7 @@ async function download(msg, incognito, sendResponse) {
 
 /* chrome.downloads.onChanged.addListener(change => {
     if (!change.state) return;
-    chrome.notifications.clear("imagus_download");
+    chrome.notifications.clear("imagus_ultra_download");
 }); */
 
 function keepAlive() {
@@ -548,7 +548,7 @@ async function toggleTab(tab) {
     tabs.forEach(initTab);
 }
 
-// check if Imagus is disabled on the given URL
+// check if Imagus Ultra is disabled on the given URL
 function grantsIsBlocked(url) {
     if (!url || !cachedPrefs.grants) return false;
 
@@ -563,7 +563,7 @@ function grantsIsBlocked(url) {
     return blocked;
 }
 
-// disable Imagus on the given URL
+// disable Imagus Ultra on the given URL
 async function grantsAdd(url) {
     if (!url) return;
     const hostname = new URL(url).hostname;
@@ -574,7 +574,7 @@ async function grantsAdd(url) {
     await updatePrefs({ grants: grants });
 }
 
-// enable Imagus on the given URL
+// enable Imagus Ultra on the given URL
 async function grantsRemove(url) {
     if (!url) return;
     const hostname = new URL(url).hostname;
@@ -600,7 +600,7 @@ function updateBadge(tabId, tabUrl) {
     }
 }
 
-// disable/enable Imagus on icon click
+// disable/enable Imagus Ultra on icon click
 chrome.action.onClicked.addListener(toggleTab);
 
 // update badge on tab update
